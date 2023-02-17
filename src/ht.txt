@@ -1,0 +1,185 @@
+
+  "<!DOCTYPE html>\
+<html>\
+<head>\
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1251\" >\
+<title>TrackBar</title>\
+<script type=\"text/javascript\">\
+    function onChangeTrackBar() {\
+document.getElementById(\'trackBarValue\').innerHTML = document.getElementById(\'trackbar\').value;\
+    }\
+</script>\
+</head>\
+    <body>\
+        <input type=\"range\" id=\"trackbar\" onchange=\"onChangeTrackBar()\" />\
+        Value: <span id=\"trackBarValue\">50</span>\
+    </body>\
+</html>";
+
+
+"<!DOCTYPE html>\
+<html>\
+<head>\
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1251\" />\
+<title>TrackBar</title>\
+<script type=\"text/javascript\">\
+    function onChangeTrackBar() {\
+document.getElementById(\'trackBarValue\').innerHTML = document.getElementById(\'trackbar\').value;\
+    }\
+</script>\
+</head>\
+     <body>\
+        <?php\
+            if(isset($_POST[\'go\'])) echo $_POST[\'trackbar\'];\
+        ?>\
+        <form method=\"POST\" action=\"index.php\">\
+            <input type=\"range\" name=\"trackbar\" onchange=\"onChangeTrackBar()\"/>\
+            Value: <span id=\"trackBarValue\">50</span>\
+            <input type=\"submit\" value=\"ok\" name=\"go\" />\
+        </form>\
+    </body>\
+</html>";
+
+  \"tbVal\": document.getElementById(\'trackbar\').value,\
+  \"tbKey\": 69\
+
+  document.getElementById(\'trackBarValue\').innerHTML = document.getElementById(\'trackbar\').value;\
+var tbVal = document.getElementById(\'trackbar\').value;\
+var data = \"{\
+  \\\"tb\\\": tbVal\
+  }\"\
+var xhr = new XMLHttpRequest();\
+xhr.open(\"POST\", \"http://exohost.local/index.php\" , true);\
+xhr.setRequestHeader(\"Content-Type\", \"application/json\");\
+xhr.send(data);\
+
+
+"<!DOCTYPE html PUBLIC \"-//WAPFORUM//DTD XHTML Mobile 1.0//EN\" \"http://www.wapforum.org/DTD/xhtml-mobile10.dtd\">\
+   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+<html>\
+<head>\
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" >\
+<title>TrackBar</title>\
+<script type=\"text/javascript\">\
+  function onChangeTrackBar() {\
+  document.getElementById(\'trackBarValue\').innerHTML = document.getElementById(\'trackbar\').value;\
+  let xhr = new XMLHttpRequest();\
+  xhr.open(\"POST\", \"http://exohost.local/index.php\");\
+  xhr.setRequestHeader(\"Accept\", \"application/json\");\
+  xhr.setRequestHeader(\"Content-Type\", \"application/json\");\
+  xhr.onreadystatechange = function () {\
+  if (xhr.readyState === 4) {\
+    console.log(xhr.status);\
+    console.log(xhr.responseText);\
+  }};\
+  let settings = [];\
+  settings[0] = document.getElementById(\'trackbar\').value;\
+  settings[1] = \"start\";\
+xhr.send(JSON.stringify(settings));\
+}\
+</script>\
+</head>\
+    <body>\
+        <input type=\"range\" id=\"trackbar\" onchange=\"onChangeTrackBar()\" />\
+        Мощность: <span id=\"trackBarValue\">50</span>\
+    </body>\
+</html>";
+
+  settings[0] = {\"volt\": volt};\
+  settings[1] = {\"current\": curr};\
+  settings[2] = {\"start\": start};\
+
+  settings[0] = volt;\
+  settings[1] = curr;\
+  settings[2] = start;\
+
+  settings.volt = volt;\
+  settings.current = curr;\
+  settings.start = start;\
+
+
+  	paulstoffregen/Encoder@^1.4.2
+	adafruit/Adafruit SSD1306@^2.5.7
+
+
+  <style type=\"text/css\">\
+  #block-volt {\
+    position: absolute;\
+    right: 30px;\
+    bottom: 220px;\
+    width: 75%;\
+    height: 80px;\
+    text-align: center;\
+  }\n\
+  #voltage {\
+    position: relative;\
+    top: 20px;\
+    width: 100%;\
+    height: 30%;\
+  }\n\
+  #block-curr {\
+    position: absolute;\
+    right: 30px;\
+    bottom: 300px;\
+    width: 75%;\
+    height: 80px;\
+    text-align: center;\
+  }\n\
+  #current {\
+    position: relative;\
+    top: 20px;\
+    width: 100%;\
+    height: 30%;\
+  }\n\
+  #button-div {\
+    position: absolute;\
+    bottom: 10px;\
+    right: 30px;\
+    width: 80%;\
+    height: 200px;\
+  }\n\
+  #work-timer {\
+    position: relative;\
+    top: 0%;\
+    left: 0%;\
+    border-color: #2471A3;\
+    color: black;\
+    width: 40%;\
+    height: 40%;\
+    text-align: center;\
+    font-size: xx-large;\
+  }\n\
+  #powerBtn {\
+    position: relative;\
+    top: -42%;\
+    left: 50%;\
+    border-color: #273746;\
+    background-color: #2471A3;\
+    width: 50%;\
+    height: 40%;\
+    text-align: center;\
+    font-size: small;\
+  }\n\
+  #startBtn {\
+    position: relative;\
+    top: 39%;\
+    left: 6%;\
+    border-color: #273746;\
+    background-color: #2471A3;\
+    width: 50%;\
+    height: 20%;\
+    text-align: center;\
+    font-size: xx-large;\
+  }\n\
+  #jogBtn {\
+    position: relative;\
+    top: 0%;\
+    left: -50%;\
+    border-color: #273746;\
+    background-color: #2471A3;\
+    width: 40%;\
+    height: 20%;\
+    text-align: center;\
+    font-size: xx-large;\
+  }\n\
+</style>\n\
