@@ -2,10 +2,11 @@
 #include <main.h>
 
 const char index_html[] PROGMEM = R"rawliteral(
-<!DOCTYPE HTML><html>
+<!DOCTYPE html PUBLIC "-//WAPFORUM//DTD XHTML Mobile 1.0//EN">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8; width=device-width">  
 <head>
   <title>ExoBed control panel</title>
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8; width=device-width">
   <style>
   html {
     font-family: Arial, Helvetica, sans-serif;
@@ -170,17 +171,31 @@ const char index_html[] PROGMEM = R"rawliteral(
     box-shadow: 2px 2px 12px 1px #143642;
     padding-top:  3px;
     padding-bottom:3px;
-  }    
+  }   
+
 #reqPosition {
+  position: relative;
+  z-index: 2;
   height: 30px;
   width: 270px;
-}  
+} 
+
+#currentPosition {
+  pointer-events: none;
+  position: relative;
+  z-index: 0;
+  bottom: 12px;
+  width: 270px;
+}   
+ 
+#currentPosition::-webkit-slider-runnable-track {
+  background-color: #F8F7F9;
+} 
 #reqVelocity {
   height: 30px;
   width: 270px;
 } 
 </style>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
 </head>
 <body>
@@ -190,22 +205,22 @@ const char index_html[] PROGMEM = R"rawliteral(
   <div class="masonry-layout__panel">
     <div class="masonry-layout__panel-content">
       <div class="btnMainLayout">
-        <button id="btnPower" class="button"></button>
-        <p><button id="btnSave" class="button">Сохранить</button></p>
-        <p><button id="btnHome" class="button">Home</button></p>
+        <button id="btnPower" class="button" onclick="togglePower()"></button>
+        <p><button id="btnSave" class="button" onclick="toggleSave()">Сохранить</button></p>
+        <p><button id="btnHome" class="button" onclick="toggleHome()">Home</button></p>
       </div>
       <br>
       <div class="btnTimeLayout">
-        <text class="labelText">Время работы, мин.:</text>        
-        <p><input type="number" id="workTimer" class="timerText" value="10" min="1" max="15"></p>
+        <text class="labelText">Время работы, мин:</text>        
+        <p><input type="number" id="workTimer" class="timerText" value="10" min="1" max="15" onchange="inputTime()"></p>
         <p><text class="labelText">Режим работы:</text></p> 
-        <p><button id="btnType" class="button">Цикл</button></p>
+        <p><button id="btnType" class="button" onclick="toggleType()">Цикл</button></p>
       </div>   
       <br>    
       <div class="btnDiaLayout">
-        <p><text class="labelText">Диапазон:</text></p>
-        <p><input type="number" id="posMin" class="timerText" value="0" min="0" max="2499"></p>
-        <p><input type="number" id="posMax" class="timerText" value="1000" min="1" max="2500"></p>
+        <p><text class="labelText">Диапазон, мм:</text></p>
+        <p><input type="number" id="posMin" class="timerText" value="0" min="0" max="2499" onchange="inputPos()"></p>
+        <p><input type="number" id="posMax" class="timerText" value="1000" min="1" max="2500" onchange="inputPos()"></p>
       </div>    
       <br>   
       <div class="trackBarLayout">
@@ -215,11 +230,12 @@ const char index_html[] PROGMEM = R"rawliteral(
       <br>
       <div class="trackBarLayout">
         <p class="state">Позиция: <span id="position">%POS%</span>мм</p>
-        <input type="range" min="1" max="2500" value="100" id="reqPosition" width="500" onchange="onChangePosition()">
+        <input class="currPosSlider" type="range" min="1" max="2500" value="100" id="reqPosition" width="500" onchange="onChangePosition()">
+        <input class="currPosSlider" type="range" min="1" max="2500" value="100" id="currentPosition" width="500">
       </div>  
       <br>    
       <div class="btnStartLayout">
-        <button id="btnStart" class="buttonStart">Старт</button>
+        <button id="btnStart" class="buttonStart" onclick="toggleStart()">Старт</button>
       </div> 
       <br>    
       <div class="btnDirLayout">
@@ -232,25 +248,27 @@ const char index_html[] PROGMEM = R"rawliteral(
       </div> 
       <br>
       <div class="btnDirLayout">
-        <button id="btnDir" class="button">Forward</button>
-        <p><button id="btnAutoPos" class="button">AutoHome ON</button></p>
+        <button id="btnDir" class="button" onclick="toggleDir()">Forward</button>
+        <p><button id="btnAutoPos" class="button" onclick="togglePos()">AutoHome ON</button></p>
       </div>
       <br>
       <div class="btnDirLayout">
         <text class="labelText">Разрешение, имп/об:</text>        
-        <p><input type="number" id="revolution" class="timerText" value="64" min="1" max="10000"></p>
-        <p><text class="labelText">Макс. скорость, мм/с:</text></p> 
-        <p><input type="number" id="maxSpeed" class="timerText" value="5" min="1" max="10000"></p>
+        <p><input type="number" id="revolution" class="timerText" value="64" min="1" max="10000" onchange="inputVel()"></p>
+        <text class="labelText">Шаг вала, мм:</text> 
+        <p><input type="number" id="length" class="timerText" value="5" min="1" max="10000" onchange="inputVel()"></p>
       </div> 
       <br>
-      <div class="trackBarLayout">
-        <text class="labelText">Шаг вала, мм:</text>        
-        <p><input type="number" id="length" class="timerText" value="5" min="1" max="10000"></p>
+      <div class="btnDirLayout">
+        <text class="labelText">Макс. скорость, мм/с:</text> 
+        <p><input type="number" id="maxSpeed" class="timerText" value="5" min="1" max="10000" onchange="inputVel()"></p>               
+        <text class="labelText">Макс. длина, мм:</text> 
+        <p><input type="number" id="maxLength" class="timerText" value="2000" min="1" max="10000" onchange="inputVel()"></p>       
       </div> 
       <br>    
       <div class="btnDirLayout">
-        <button id="btnScanWifi" class="buttonLR">Scan WiFi</button>
-        <p><button id="btnConn" class="buttonLR">Connect</button></p>
+        <button id="btnScanWifi" class="buttonLR" onclick="toggleScanWifi()">Scan WiFi</button>
+        <p><button id="btnConn" class="buttonLR" onclick="connectWifi()">Connect</button></p>
       </div>       
       <br>
       <div class="trackBarLayout">
@@ -267,24 +285,8 @@ const char index_html[] PROGMEM = R"rawliteral(
    </div> 
   </div>
 <script>
-/*              <select id=\"ssid\" name=\"ssid\">";
-          scannedSSID = WiFi.scanComplete();
-          if(scannedSSID > 0){
-            for (int i = 0; i < scannedSSID; i++) {
-              out += "<option value=\"";
-              out += WiFi.SSID(i);
-              out += "\">";
-              out += WiFi.SSID(i);
-              out += "</option>";
-            }
-            scannedSSID = -1;
-          }      
-          out += "</select>\*/
-
-
-
-  //var gateway = `ws://${window.location.hostname}/ws`;
-  var gateway = `ws://192.168.0.150/ws`;
+  var gateway = `ws://${window.location.hostname}/ws`;
+  //var gateway = `ws://192.168.0.150/ws`;
   var websocket;
 let settings = {
   dataType: Number(1),
@@ -294,6 +296,7 @@ let settings = {
   maxSpeed: Number(100),
   maxPosition: Number(2000), 
   minPosition: Number(10),
+  maxLength: Number(2000),
   autoHome: false
 };
 let control = {
@@ -301,7 +304,7 @@ let control = {
   workTime: Number(10),
   workSpeed: Number(40),
   destPosition: Number(1000),
-  workType: false,
+  workType: true,
   start: false,
   home: false,
   save: false,
@@ -316,7 +319,8 @@ let state = {
   isMaxPos: false,
   isMinPos: false,
   currentPosition: Number(2),
-  currentSpeed: Number(2)
+  currentSpeed: Number(2),
+  estimatedTime: Number(600)
 }; 
   window.addEventListener('load', onLoad);
   function initWebSocket() {
@@ -342,6 +346,8 @@ let state = {
       getState(jsonData);
     }else if(jsonData["dataType"] == 4){
       fillWifiList(jsonData);
+    }else if(jsonData["dataType"] == 5){
+      getWorkInfo(jsonData);
     }
 
   }
@@ -357,6 +363,35 @@ function fillWifiList(jsonData){
       document.getElementById('ssid').options[i] = newOption;
     }
 }  
+function getWorkInfo(jsonData){
+  state.isMove = jsonData["isMove"];
+  state.isHomed = jsonData["isHomed"];
+  state.isMaxPos = jsonData["isMaxPos"];
+  state.isMinPos = jsonData["isMinPos"];
+  state.currentPosition = jsonData["currentPosition"];
+  control.start = jsonData["start"];
+  state.estimatedTime = jsonData["estimatedTime"];
+  document.getElementById('currentPosition').value = state.currentPosition;
+  document.getElementById('btnStart').innerHTML = control.start ? "Стоп" : "Старт";
+  if(state.isHomed){
+    document.getElementById('btnStart').style.backgroundColor = "#0f8b8d";
+    document.getElementById('btnStart').disabled = false;
+    document.getElementById('btnHome').style.backgroundColor = "#0f8b8d";
+  }else{
+    document.getElementById('btnStart').style.backgroundColor = "#640207";
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnHome').style.backgroundColor = "#640207";    
+  }
+  if(control.workType && control.start){
+    let ts = control.workTime*60 - state.estimatedTime;
+    let tm = Math.floor(ts/60);
+    let s = ts%60;
+    if(s>9) document.getElementById('btnStart').innerHTML = tm + " : " + s;
+    else document.getElementById('btnStart').innerHTML = tm + " : 0" + s;
+    
+  }
+} 
+
 function getState(jsonData){
   state.isMove = jsonData["isMove"];
   state.isHomed = jsonData["isHomed"];
@@ -364,25 +399,32 @@ function getState(jsonData){
   state.isMinPos = jsonData["isMinPos"];
   state.currentPosition = jsonData["currentPosition"];
   state.currentSpeed = jsonData["currentSpeed"];
-
   control.workTime = jsonData["workTime"];
-  control.workSpeed = jsonData["workSpeed"];
-  control.destPosition = jsonData["destPosition"];
   control.workType = jsonData["workType"];
   control.start = jsonData["start"];
   control.power = jsonData["power"];
-
   settings.maxPosition = jsonData["maxPosition"];
   settings.minPosition = jsonData["minPosition"];
 
-  document.getElementById('reqVelocity').value = control.workSpeed;
-  document.getElementById('velocity').innerHTML = control.workSpeed;  
+  document.getElementById('reqVelocity').value = state.currentSpeed;
+  document.getElementById('velocity').innerHTML = state.currentSpeed;  
   document.getElementById('workTimer').value = control.workTime;
   document.getElementById('posMin').value = settings.minPosition;
   document.getElementById('posMax').value = settings.maxPosition;  
-  document.getElementById('btnPower').innerHTML = control.power ? "OFF" : "ON";
+  document.getElementById('btnPower').innerHTML = control.power ? "ON" : "OFF";
   document.getElementById('btnType').innerHTML = control.workType ? "Цикл" : "Free";
   document.getElementById('btnStart').innerHTML = control.start ? "Стоп" : "Старт";
+  document.getElementById('currentPosition').value = state.currentPosition;  
+  if(state.isHomed){
+    document.getElementById('btnStart').style.backgroundColor = "#0f8b8d";
+    document.getElementById('btnStart').disabled = false;
+    document.getElementById('btnHome').style.backgroundColor = "#0f8b8d";
+
+  }else{
+    document.getElementById('btnStart').style.backgroundColor = "#640207";
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnHome').style.backgroundColor = "#640207";    
+  }
 
 } 
 function initSettings(jsonData){
@@ -393,8 +435,10 @@ function initSettings(jsonData){
       settings.maxSpeed = jsonData["maxSpeed"];
       settings.autoHome = jsonData["autoHome"];
       settings.length = jsonData["length"];  
+      settings.maxLength = jsonData["maxLength"]; 
       control.workTime = jsonData["workTime"];  
-      document.getElementById('btnDir').innerHTML = settings.direction ? "Forward" : "Backward";
+      
+      document.getElementById('btnDir').innerHTML = settings.direction ? "Forward" : "Reverse";
       document.getElementById('btnAutoPos').innerHTML = settings.autoHome ? "AutoHome ON" : "AutoHome OFF";
       document.getElementById('maxSpeed').value = settings.maxSpeed;
       document.getElementById('length').value = settings.length;
@@ -402,6 +446,9 @@ function initSettings(jsonData){
       document.getElementById('posMin').value = settings.minPosition;
       document.getElementById('posMax').value = settings.maxPosition;
       document.getElementById('workTimer').value = control.workTime;
+      document.getElementById('maxLength').value = settings.maxLength;
+      document.getElementById('reqPosition').max = settings.maxLength;
+      document.getElementById('currentPosition').max = settings.maxLength;
 }
 
   function onLoad(event) {
@@ -409,12 +456,15 @@ function initSettings(jsonData){
     initButton();
   }
   function initButton() {
-    document.getElementById('btnScanWifi').addEventListener('click', toggleScanWifi);
-    document.getElementById('btnConn').addEventListener('click', connectWifi);
-    document.getElementById('btnPower').innerHTML = control.power ? "OFF" : "ON";
-    document.getElementById('btnPower').addEventListener('click', togglePower);
-    document.getElementById('btnSave').addEventListener('click', toggleSave);
-    document.getElementById('btnHome').addEventListener('click', toggleHome);
+    document.getElementById('btnPower').innerHTML = control.power ? "ON" : "OFF";
+    document.getElementById('btnStart').innerHTML = control.start ? "Стоп" : "Старт";
+    document.getElementById('btnType').innerHTML = control.workType ? "Цикл" : "Free"; 
+    document.getElementById('btnDir').innerHTML = settings.direction ? "Forward" : "Reverse";       
+    document.getElementById('btnAutoPos').innerHTML = settings.autoHome ? "AutoHome ON" : "AutoHome OFF";    
+    control.workSpeed = document.getElementById('reqVelocity').value;
+    document.getElementById('velocity').innerHTML = control.workSpeed;
+    control.destPosition = document.getElementById('reqPosition').value;
+    document.getElementById('position').innerHTML = control.destPosition;    
     if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
       document.getElementById('btnLeft').addEventListener('touchstart', focusLeft);
       document.getElementById('btnRight').addEventListener('touchstart', focusRight);
@@ -426,31 +476,6 @@ function initSettings(jsonData){
       document.getElementById('btnLeft').addEventListener('click', toggleLeft);
       document.getElementById('btnRight').addEventListener('click', toggleRight);
     }
-    document.getElementById('btnStart').addEventListener('click', toggleStart);
-    document.getElementById('btnStart').innerHTML = control.start ? "Стоп" : "Старт";
-    document.getElementById('btnType').addEventListener('click', toggleType);
-    document.getElementById('btnType').innerHTML = control.workType ? "Цикл" : "Free";
-
-    document.getElementById('posMin').addEventListener('change', inputPos);
-    document.getElementById('posMax').addEventListener('change', inputPos);
-    document.getElementById('workTimer').addEventListener('change', inputTime);
-
-    control.workSpeed = document.getElementById('reqVelocity').value;
-    document.getElementById('velocity').innerHTML = control.workSpeed;
-    control.destPosition = document.getElementById('reqPosition').value;
-    document.getElementById('position').innerHTML = control.destPosition;  
-    
-    document.getElementById('btnDir').innerHTML = settings.direction ? "Forward" : "Backward";
-    document.getElementById('btnDir').addEventListener('click', toggleDir);
-
-    document.getElementById('btnAutoPos').innerHTML = settings.autoHome ? "AutoHome ON" : "AutoHome OFF";
-    document.getElementById('btnAutoPos').addEventListener('click', togglePos);
-
-    document.getElementById('maxSpeed').addEventListener('change', inputVel);
-    document.getElementById('revolution').addEventListener('change', inputVel);
-    document.getElementById('length').addEventListener('change', inputVel);
-    document.getElementById('btnSave').addEventListener('click', toggleSave);    
-
   }
   function toggleScanWifi(){
     websocket.send("getWifi");
@@ -474,12 +499,10 @@ function initSettings(jsonData){
   }  
   function toggleStart(){
     control.start = !control.start;
-    //document.getElementById('btnStart').innerHTML = control.start ? "Стоп" : "Старт";
     websocket.send(JSON.stringify(control));
   }   
   function togglePower(){
     control.power = !control.power;
-    //document.getElementById('btnPower').innerHTML = control.power ? "OFF" : "ON";
     websocket.send(JSON.stringify(control));
   }  
   function toggleSave(){
@@ -492,7 +515,6 @@ function initSettings(jsonData){
     websocket.send(JSON.stringify(control));
     control.home = false;
   }  
-    
   function focusLeft(){
     control.moveLeft = true;
     websocket.send(JSON.stringify(control));
@@ -513,7 +535,6 @@ function initSettings(jsonData){
   } 
   function toggleType(){
     control.workType = !control.workType;
-    //document.getElementById('btnType').innerHTML = control.workType ? "Цикл" : "Free";
     websocket.send(JSON.stringify(control));
   } 
   function onChangeVelocity(){
@@ -528,7 +549,7 @@ function initSettings(jsonData){
   }   
   function toggleDir(){
     settings.direction = !settings.direction;
-    document.getElementById('btnDir').innerHTML = settings.direction ? "Forward" : "Backward";
+    document.getElementById('btnDir').innerHTML = settings.direction ? "Forward" : "Reverse";
     websocket.send(JSON.stringify(settings));
   }  
   function togglePos(){
@@ -540,10 +561,9 @@ function initSettings(jsonData){
     settings.revolution = Number(document.getElementById('revolution').value);
     settings.maxSpeed = Number(document.getElementById('maxSpeed').value);
     settings.length = Number(document.getElementById('length').value);
+    settings.maxLength = Number(document.getElementById('maxLength').value);
     websocket.send(JSON.stringify(settings));
   }  
-
-
 </script>
 </body>
 </html>)rawliteral";

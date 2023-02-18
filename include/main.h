@@ -16,12 +16,16 @@ typedef struct{
   float accel;
   boolean autoHome;
   uint8_t length;
+  uint16_t maxLength;
 }Settings_t;
 
 typedef struct{
   float speed;
   float accel;
   long dest;
+  long leftDest;
+  long rightDest;
+  boolean side;
 }Stepper_t;
 
 
@@ -32,6 +36,7 @@ typedef struct{
   boolean isMinPos;
   uint16_t currentPosition;
   uint16_t currentSpeed;
+  unsigned long estimatedTime;
   boolean isHomeProcess;
   boolean isHoming;
   boolean isOnHomeSensor;

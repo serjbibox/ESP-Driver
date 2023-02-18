@@ -21,17 +21,21 @@ Control_t control;
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-
+static void goHome();
 #define DRIVER_DIR D0
 #define DRIVER_PULSE D1
+#define DRIVER_EN D4
 #define SENSOR_HOME D2
 #define SENSOR_UP D3
+
+#define TYPE_CYCLE true
+#define TYPE_FREE false
 
 AccelStepper stepper(AccelStepper::DRIVER, DRIVER_DIR, DRIVER_PULSE);
 Stepper_t step;
 
 WifiSettings_t AccesPoint;
-#define EEPROM_LENGTH 59
+#define EEPROM_LENGTH 61
 #define BYTE_LENGTH 1
 #define WORD_LENGTH 2
 
@@ -48,6 +52,7 @@ WifiSettings_t AccesPoint;
 #define REVO_LOC 53
 #define MAXPOS_LOC 55
 #define MINPOS_LOC 57
+#define MAXLENGTH_LOC 59
 
 void validateSettings(){
   if(control.workTime > 15) control.workTime = 15;
@@ -56,13 +61,15 @@ void validateSettings(){
   if(settings.revolution > 2500) settings.revolution = 400;
   if(settings.maxPosition > 3000) settings.maxPosition = 2000;
   if(settings.minPosition > 3000) settings.minPosition = 1;
-
+  if(settings.maxLength > 3000) settings.maxLength = 1500;
   yield();
 }
 void initFlags(){
   control.workSpeed = 50;
   control.start = false;
   state.isHomed = false;
+  control.power = true;
+  control.workType = TYPE_CYCLE;
   state.isHomeProcess = false;
   state.isOnHomeSensor = false;
   state.isOnUpSensor = false;
@@ -90,6 +97,8 @@ void readEEPROM() {
   settings.maxPosition = ((h<<8) & 0xFF00) | EEPROM.read(MAXPOS_LOC+1);
   h = EEPROM.read(MINPOS_LOC);
   settings.minPosition = ((h<<8) & 0xFF00) | EEPROM.read(MINPOS_LOC+1);
+  h = EEPROM.read(MAXLENGTH_LOC);
+  settings.maxLength = ((h<<8) & 0xFF00) | EEPROM.read(MAXLENGTH_LOC+1);  
   EEPROM.end();
   validateSettings();
 }
@@ -116,6 +125,8 @@ void saveSettings(){
   EEPROM.write(MAXPOS_LOC+1, settings.maxPosition & 0x00FF);
   EEPROM.write(MINPOS_LOC, settings.minPosition>>8);
   EEPROM.write(MINPOS_LOC+1, settings.minPosition & 0x00FF);
+  EEPROM.write(MAXLENGTH_LOC, settings.maxLength>>8);
+  EEPROM.write(MAXLENGTH_LOC+1, settings.maxLength & 0x00FF);  
   EEPROM.end();
 }
 
@@ -132,6 +143,25 @@ String sendSettings() {
   root["autoHome"] = settings.autoHome;
   root["length"] = settings.length;
   root["workTime"] = control.workTime;
+  root["maxLength"] = settings.maxLength;
+  serializeJson(root, json_string);
+  ws.textAll(String(json_string));
+  return String(json_string);
+}
+
+String sendCurrPosition() {
+  char json_string[512];
+  DynamicJsonDocument doc(512);
+  JsonObject root  = doc.to<JsonObject>();
+  root["dataType"] = 5;
+  root["start"] = control.start;
+  root["isMove"] = state.isMove;
+  root["isHomed"] = state.isHomed;
+  root["isMinPos"] = state.isOnHomeSensor;
+  root["isMaxPos"] = state.isOnUpSensor;
+  root["estimatedTime"] = state.estimatedTime;  
+  state.currentPosition = long(stepper.currentPosition()*settings.length/settings.revolution);
+  root["currentPosition"] = state.currentPosition;
   serializeJson(root, json_string);
   ws.textAll(String(json_string));
   return String(json_string);
@@ -144,14 +174,14 @@ String sendState() {
   root["dataType"] = 3;
   root["isMove"] = state.isMove;
   root["isHomed"] = state.isHomed;
-  root["isMinPos"] = state.isMinPos;
-  root["isMaxPos"] = state.isMaxPos;
+  root["isMinPos"] = state.isOnHomeSensor;
+  root["isMaxPos"] = state.isOnUpSensor;
+  state.currentPosition = long(stepper.currentPosition()*settings.length/settings.revolution);
   root["currentPosition"] = state.currentPosition;
+  state.currentSpeed = control.workSpeed;
   root["currentSpeed"] = state.currentSpeed;
-
   root["start"] = control.start;
   root["power"] = control.power;
-  root["destPosition"] = control.destPosition;
   root["workSpeed"] = control.workSpeed;
   root["workTime"] = control.workTime;
   root["workType"] = control.workType;
@@ -245,6 +275,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           settings.maxSpeed = parsed["maxSpeed"];
           settings.autoHome = parsed["autoHome"];
           settings.length = parsed["length"];
+          settings.maxLength = parsed["maxLength"];
           isDataReceived = true;
         break;
         case 2:
@@ -258,7 +289,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           control.workSpeed = parsed["workSpeed"];
           control.workTime = parsed["workTime"];
           control.workType = parsed["workType"];
-          state.currentSpeed = control.workSpeed;
           isDataReceived = true;
         break;  
         case 4:
@@ -314,12 +344,17 @@ void setStepperParams(){
 void setStepperDest(){
   step.dest = long(control.destPosition*settings.revolution/settings.length);
   if(!settings.direction) step.dest = -step.dest;
+  step.leftDest = long(settings.minPosition*settings.revolution/settings.length);
+  if(!settings.direction) step.leftDest = -step.leftDest;
+  step.rightDest = long(settings.maxPosition*settings.revolution/settings.length);
+  if(!settings.direction) step.rightDest = -step.rightDest;  
 }
 
 void setup(){
   Serial.begin(115200);
   pinMode(DRIVER_DIR, OUTPUT);
   pinMode(DRIVER_PULSE, OUTPUT);
+  pinMode(DRIVER_EN, OUTPUT);
   pinMode(SENSOR_HOME, INPUT_PULLUP);
   pinMode(SENSOR_UP, INPUT_PULLUP);
   delay(500);
@@ -368,6 +403,9 @@ void setup(){
   setStepperDest();
   stepper.setCurrentPosition(0);
   stepper.stop();
+  if(settings.autoHome){
+    goHome();
+  }
 }
 
 void handleControl(){
@@ -387,10 +425,9 @@ void handleStepperParams(){
       setStepperDest();
       stepper.setAcceleration(step.accel);
       stepper.setMaxSpeed(step.speed); 
-      if(control.start){
+      if((control.start==true) & (control.workType == TYPE_FREE)){
         stepper.moveTo(step.dest);
       }
-      Serial.printf("target: %ld, coord: %ld\r\n", stepper.targetPosition(), stepper.currentPosition());
       yield();
 }
 
@@ -403,6 +440,7 @@ void stopStep(){
 }
 
 void goHome(){
+  yield();
   if(control.start == true){
     Serial.println("Cannot to home");
     delay(300);
@@ -451,13 +489,36 @@ void goHome(){
 
 }
 
-boolean cykle = false;
+void runStepper(){
+    if(digitalRead(SENSOR_HOME)==0){
+      stopStep();
+      state.isOnHomeSensor = true;
+      Serial.println("on home sensor!");
+      delay(300);
+    }else if(digitalRead(SENSOR_UP)==0){
+      stopStep();
+      Serial.println("on up sensor!");
+      delay(300);
+    }else{
+      state.isOnHomeSensor = false;
+      state.isOnUpSensor = false;
+      stepper.run();
+    } 
+}
+
+
+
 
 void loop() {
   static boolean moveLeftFlag = false, moveRightFlag = false;
+  static unsigned long txTick = 0, timeTick = 0, workTime = 0;
   ws.cleanupClients();
   handleControl();
-
+  unsigned long txMillis = millis();
+    if((txMillis - txTick) > 500){
+      txTick = txMillis;
+      sendCurrPosition();
+    }
   if(isDataReceived){
     sendState();
     handleStepperParams();
@@ -467,22 +528,49 @@ void loop() {
     goHome();
   }
   if(control.start){
+    yield();
     if(!isStarted){
       setStepperParams();
       stepper.setMaxSpeed(step.speed);
-      stepper.moveTo(step.dest);
+      switch(control.workType){
+        case TYPE_FREE:
+          stepper.moveTo(step.dest);
+        break;
+        case TYPE_CYCLE:
+          timeTick = millis();
+          workTime = long(control.workTime*60*1000);
+          stepper.moveTo(step.rightDest);
+          step.side = true;
+        break;
+      }
       isStarted = true;  
-      isStoped = false;
+      isStoped = false;       
     }
-    if(digitalRead(SENSOR_HOME)==0){
-      stopStep();
-      Serial.println("on home sensor!");
-      delay(300);
-    }else if(digitalRead(SENSOR_UP)==0){
-      stopStep();
-      Serial.println("on up sensor!");
-      delay(300);
-    }else stepper.run();
+    switch(control.workType){
+      case TYPE_FREE:
+        runStepper();
+      break;
+      case TYPE_CYCLE:
+      unsigned long estTime = millis() - timeTick;
+      state.estimatedTime = estTime/1000;
+      if(estTime < workTime){
+        if(stepper.distanceToGo() == 0){
+          if(step.side){
+            step.side = false;
+            stepper.moveTo(step.leftDest);
+          } 
+          else{
+            step.side = true;
+            stepper.moveTo(step.rightDest);
+          } 
+        }
+        runStepper();
+      }
+      else{
+        control.start = false;
+      }
+      break;
+    }    
     
   }else if(!control.start & !isStoped){
     isStarted = false;
@@ -514,7 +602,7 @@ void loop() {
       else stepper.moveTo(-4000000);
     }
     if(digitalRead(SENSOR_UP)==1) stepper.run();
-    else stepper.stop();
+    else stopStep();
   }else if(!control.moveRight){
     if(moveRightFlag){
       stopStep();
@@ -522,7 +610,9 @@ void loop() {
       moveRightFlag = false;
     }
   }
-  
+  if(control.power) digitalWrite(DRIVER_EN, 0);
+  else digitalWrite(DRIVER_EN, 1);
+
  
 }
 
